@@ -10,6 +10,12 @@ import { motion, AnimatePresence } from "motion/react";
 import { REFERENCE_FILES } from "./referenceData";
 import { LibraryMaterial, StudyPathway, StudyTopic, GamificationState, Badge, ColorUnit, ChatMessage } from "./types";
 import Biblioteca from "./components/Biblioteca";
+import { supabase } from './lib/supabase'
+
+supabase.from('users').select('*').then(({ data, error }) => {
+  console.log('data:', data)
+  console.log('error:', error)
+})
 
 // Conteúdo Inicial de demonstração para hidratar o aplicativo SkillQuest com requinte
 const INITIAL_MATERIALS: LibraryMaterial[] = [
