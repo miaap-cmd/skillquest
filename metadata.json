@@ -2,5 +2,5 @@
   "name": "SkillQuest",
   "description": "Plataforma gamificada de mapeamento de habilidades e aprendizado reverso guiada por IA.",
   "requestFramePermissions": [],
-  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_COPILOT_API"]
 }

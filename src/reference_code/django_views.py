@@ -15,7 +15,7 @@ from .models import (
     UserProfile, StudyMaterial, StudyPathway, PathwayColor, 
     StudyTopic, UserTopicCompletion, Badge, UserBadge
 )
-from .django_service import GeminiReverseLearningService
+from .django_service import CopilotReverseLearningService
 
 class UserProfileStatusView(APIView):
     """
@@ -67,7 +67,7 @@ class UserProfileStatusView(APIView):
 class MultimodalScanView(APIView):
     """
     POST /api/materials/upload/
-    Recebe arquivo em base64 e aciona o motor do Gemini IA para decodificar pedagogicamente o assunto.
+    Recebe arquivo em base64 e aciona o motor de IA do Copilot para decodificar pedagogicamente o assunto.
     """
     permission_classes = [IsAuthenticated]
 
@@ -83,8 +83,8 @@ class MultimodalScanView(APIView):
                 status=status.HTTP_400_BAD_REQUEST
             )
 
-        # 1. Aciona o Serviço Inteligente do Gemini
-        ai_data = GeminiReverseLearningService.analyze_material(
+        # 1. Aciona o Serviço Inteligente do Copilot
+        ai_data = CopilotReverseLearningService.analyze_material(
             base64_image_data=file_data,
             mime_type=mime_type,
             file_name=file_name
@@ -149,7 +149,7 @@ class MultimodalScanView(APIView):
             UserBadge.objects.get_or_create(profile=profile, badge=badge)
 
         return Response({
-            "message": "Caminho didático gerado com primor tecnológico pelo Gemini!",
+            "message": "Caminho didático gerado com primor tecnológico pelo Copilot!",
             "material_id": material.id,
             "category_detected": category_detected,
             "pathway": {

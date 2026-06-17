@@ -1423,7 +1423,7 @@ export default function App() {
                   </div>
                   <div>
                     <h3 className="font-display font-bold text-base text-slate-800">IA Scanner: Triagem Completa</h3>
-                    <p className="text-[11px] text-slate-400 mt-0.5">O arquivo foi descriptografado com sucesso pelo Gemini.</p>
+                    <p className="text-[11px] text-slate-400 mt-0.5">O arquivo foi descriptografado com sucesso pelo Copilot.</p>
                   </div>
                 </div>
 

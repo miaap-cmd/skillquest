@@ -100,7 +100,7 @@ class StudyMaterial(models.Model):
 
 class StudyPathway(models.Model):
     """
-    O Walkthrough de estudos gerado pelo Gemini correspondente a um material específico.
+    O Walkthrough de estudos gerado pelo Copilot correspondente a um material específico.
     """
     material = models.OneToOneField(StudyMaterial, on_delete=models.CASCADE, related_name='pathway')
     complexity = models.CharField(max_length=50, help_text="Iniciante, Intermediário, Avançado")

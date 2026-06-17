@@ -3,7 +3,7 @@
 Este repositório contém a infraestrutura e arquitetura necessárias para inicializar a plataforma gamificada **SkillQuest** na sua máquina local ou em servidores de produção (PaaS/IaaS).
 
 A estrutura está separada em:
-1. **Backend**: API REST robusta construída em Python utilizando **Django & Django REST Framework (DRF)** integrado via SDK oficial `google-genai` do Google Gemini.
+1. **Backend**: API REST robusta construída em Python utilizando **Django & Django REST Framework (DRF)** integrado ao motor de IA do Copilot.
 2. **Frontend**: Aplicação interativa de alta performance construída em TypeScript utilizando **Next.js & Tailwind CSS**.
 
 ---
@@ -13,7 +13,7 @@ A estrutura está separada em:
 - **Python**: versão `3.10` ou superior.
 - **Node.js**: versão `18.x` ou superior.
 - **Banco de Dados**: PostgreSQL (padrão de produção do SkillQuest, recomendável) ou SQLite para testes rápidos locais.
-- **Chave de API do Google Gemini**: Obtida gratuitamente no [Google AI Studio](https://aistudio.google.com/).
+- **Chave de API do Copilot**: Configure a credencial adequada no ambiente de deployment ou na plataforma de autenticação escolhida.
 
 ---
 
@@ -36,7 +36,7 @@ venv\Scripts\activate
 Agora instale as dependências essenciais de produção:
 
 ```bash
-pip install django djangorestframework djangorestframework-simplejwt django-cors-headers google-genai python-dotenv pillow psycopg2-binary
+pip install django djangorestframework djangorestframework-simplejwt django-cors-headers python-dotenv pillow psycopg2-binary requests
 ```
 
 ### Passo 1.2: Configuração das Variáveis de Ambiente (`.env`)
@@ -50,8 +50,9 @@ SECRET_KEY="sua_chave_secreta_django_aqui"
 # Conexão com Banco de Dados (PostgreSQL de exemplo)
 DATABASE_URL="postgres://usuario:senha@localhost:5432/db_skillquest"
 
-# Conexão com Google Gemini IA (Obrigatória de Produção)
-GEMINI_API_KEY="AIzaSyYourGeminiApiKeyHere"
+# Conexão com a IA do Copilot (Obrigatória de Produção)
+COPILOT_API_KEY="your-copilot-api-key"
+COPILOT_MODEL="copilot-default"
 ```
 
 ### Passo 1.3: Conectar no `settings.py` do Django
@@ -85,8 +86,9 @@ CORS_ALLOWED_ORIGINS = [
     "http://localhost:4000",
 ]
 
-# Carrega Chave de API do Gemini para o Serviço
-GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
+# Carrega Chave de API do Copilot para o Serviço
+COPILOT_API_KEY = os.getenv("COPILOT_API_KEY")
+COPILOT_MODEL = os.getenv("COPILOT_MODEL", "copilot-default")
 
 # Configurar DRF com autenticação baseada em JWT
 REST_FRAMEWORK = {
@@ -158,7 +160,7 @@ O Next.js estará acessível no endereço http://localhost:3000.
 
 O SkillQuest utiliza fórmulas precisas para manter o usuário imerso na aprendizagem reversa:
 - **XP Progression**: O XP necessário para atingir o próximo nível evolui pela fórmula: `XP_NÉCESSÁRIO = NÍVEL_ATUAL * 1000`. E.g., para o Lvl 4 subir para Lvl 5, o usuário precisa de 4,000 XP acumulados.
-- **Multimodal Scanning (+100 XP)**: Uploads de imagens iniciam um webhook na API do Gemini. Uma resposta detalhada cria um `StudyPathway` e atribui 100 XP por "descriptografar" o tema.
+- **Multimodal Scanning (+100 XP)**: Uploads de imagens iniciam um webhook na API do Copilot. Uma resposta detalhada cria um `StudyPathway` e atribui 100 XP por "descriptografar" o tema.
 - **Topic Checked (+50 a +200 XP)**: O usuário valida que estudou, ganhando o XP demarcado (frequentemente 100 XP para tópicos secundários e 200 XP para tópicos avançados). Se desmarcado por engano, o XP é removido com reajuste automático de nível.
 - **Streak de Ofensiva**: Monitorado no banco de dados. Caso o usuário complete ou crie trilhas em dias subsequentes, a ofensiva soma +1. Caso haja um intervalo maior que 24h a partir do último dia ativo, a ofensiva é reiniciada para 1.
 - **Unlocking Badges**: Gatilhos automáticos dentro dos sinais de persistência (`post_save` do Django ou Views estruturadas) realizam verificações lógicas de conquistas para conferir medalhas com destaque visual em verde-água `#40C9AD`.

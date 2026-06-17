@@ -1,6 +1,6 @@
 """
-SkillQuest - Serviço Django de Integração com Google Gemini
-Este serviço utiliza o SDK oficial 'google-genai' ou a API padrão REST
+SkillQuest - Serviço Django de Integração com Copilot
+Este serviço utiliza a API compatível com o motor de IA do Copilot ou uma implementação REST equivalente.
 para escanear materiais multimodais (imagens e diagramas) e retornar
 um walkthrough detalhado de estudos na forma de JSON estruturado.
 """
@@ -12,23 +12,22 @@ from google import genai
 from google.genai import types
 from django.conf import settings
 
-class GeminiReverseLearningService:
+class CopilotReverseLearningService:
     @staticmethod
     def get_client():
         """
-        Inicializa o cliente Google GenAI utilizando a chave de API configurada.
+        Inicializa o cliente de IA utilizando a chave de API configurada para o Copilot.
         """
-        api_key = getattr(settings, 'GEMINI_API_KEY', os.environ.get('GEMINI_API_KEY'))
+        api_key = getattr(settings, 'COPILOT_API_KEY', os.environ.get('COPILOT_API_KEY'))
         if not api_key:
-            raise ValueError("GEMINI_API_KEY não foi configurada nas configurações do Django.")
+            raise ValueError("COPILOT_API_KEY não foi configurada nas configurações do Django.")
         
-        # Inicializa com o agente aistudio-build para telemetria recomendada
         return genai.Client(api_key=api_key)
 
     @classmethod
     def analyze_material(cls, base64_image_data: str, mime_type: str, file_name: str) -> dict:
         """
-        Envia uma imagem/diagrama base64 para o Gemini-3.5-Flash para gerar o Walkthrough de Estudos.
+        Envia uma imagem/diagrama base64 para o motor de IA do Copilot para gerar o Walkthrough de Estudos.
         Retorna um dicionário estruturado estritamente segundo as diretrizes de design do SkillQuest.
         """
         client = cls.get_client()
@@ -98,7 +97,7 @@ class GeminiReverseLearningService:
             required=["complexity", "justifiedPedagogy", "estimatedTime", "colors", "topics", "roadmap", "category"]
         )
 
-        # Prepara a imagem para o Gemini
+        # Prepara a imagem para o Copilot
         image_part = types.Part.from_bytes(
             data=base64.b64decode(base64_image_data),
             mime_type=mime_type
@@ -117,9 +116,9 @@ class GeminiReverseLearningService:
         )
 
         try:
-            # Recomenda-se gemini-3.5-flash pela alta eficiência, suporte excelente a imagens e latência reduzida
+            # Utiliza o modelo configurado para o Copilot, com suporte a imagens e respostas estruturadas.
             response = client.models.generate_content(
-                model='gemini-3.5-flash',
+                model=os.getenv('COPILOT_MODEL', 'copilot-default'),
                 contents=[image_part, prompt],
                 config=types.GenerateContentConfig(
                     system_instruction=system_instruction,

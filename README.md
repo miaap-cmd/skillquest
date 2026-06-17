@@ -15,6 +15,6 @@ View your app in AI Studio: https://ai.studio/apps/f693ee6f-7238-4ca5-8450-7cb71
 
 1. Install dependencies:
    `npm install`
-2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
+2. Set the `COPILOT_API_KEY` in [.env.local](.env.local) to your Copilot API key
 3. Run the app:
    `npm run dev`

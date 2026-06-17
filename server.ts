@@ -1,7 +1,6 @@
 import express from "express";
 import path from "path";
 import { createServer as createViteServer } from "vite";
-import { GoogleGenAI, Type } from "@google/genai";
 import dotenv from "dotenv";
 
 dotenv.config();
@@ -13,25 +12,40 @@ const PORT = 3000;
 app.use(express.json({ limit: "50mb" }));
 app.use(express.urlencoded({ limit: "50mb", extended: true }));
 
-// Inicialização segura e dinâmica do SDK GoogleGenAI com tratamento contra ausência de chave (Lazy Initialization)
-function getAiClient(): GoogleGenAI | null {
-  const apiKey = process.env.GEMINI_API_KEY;
-  if (!apiKey || apiKey === "MY_GEMINI_API_KEY" || apiKey.trim() === "") {
+const COPILOT_API_URL = process.env.COPILOT_API_URL || "https://models.inference.ai.azure.com/chat/completions";
+const COPILOT_MODEL = process.env.COPILOT_MODEL || "Meta-Llama-3.1-8B-Instruct";
+
+function getCopilotApiKey() {
+  return process.env.COPILOT_API_KEY || process.env.GITHUB_TOKEN || process.env.GITHUB_CODESPACE_TOKEN || "";
+}
+
+async function callCopilotAPI(messages: Array<{ role: string; content: string }>, temperature = 0.2) {
+  const apiKey = getCopilotApiKey();
+  if (!apiKey || apiKey === "MY_COPILOT_API_KEY" || apiKey.trim() === "") {
     return null;
   }
-  try {
-    return new GoogleGenAI({
-      apiKey: apiKey,
-      httpOptions: {
-        headers: {
-          'User-Agent': 'aistudio-build',
-        }
-      }
-    });
-  } catch (err) {
-    console.error("Falha ao instanciar o cliente GoogleGenAI:", err);
-    return null;
+
+  const response = await fetch(COPILOT_API_URL, {
+    method: "POST",
+    headers: {
+      "Authorization": `Bearer ${apiKey}`,
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({
+      model: COPILOT_MODEL,
+      messages,
+      temperature,
+      max_tokens: 800
+    })
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`Copilot API error ${response.status}: ${errorText}`);
   }
+
+  const data = await response.json();
+  return data.choices?.[0]?.message?.content || "";
 }
 
 // ENDPOINT 1: Escaneamento Multimodal e Engenharia Reversa de Estudos
@@ -42,9 +56,8 @@ app.post("/api/analyze-material", async (req, res) => {
     return res.status(400).json({ error: "O parâmetro 'fileBase64' é obrigatório." });
   }
 
-  const ai = getAiClient();
-  // Se o cliente não estiver inicializado de forma real, retornamos uma decodificação estruturada simulada
-  if (!ai) {
+  const apiKey = getCopilotApiKey();
+  if (!apiKey || apiKey === "MY_COPILOT_API_KEY" || apiKey.trim() === "") {
     console.log("Mocking response for demonstration - API key is missing");
     return res.json(getMockWalkthrough(fileName || "Imagem Carregada"));
   }
@@ -77,66 +90,22 @@ app.post("/api/analyze-material", async (req, res) => {
       6. A categoria predominante de conhecimento (ex: Design 3D, Desenvolvimento Web, Inteligência Artificial, Banco de Datos, Ilustração Vetorial, Programação, etc.).
     `;
 
-    const response = await ai.models.generateContent({
-      model: "gemini-3.5-flash",
-      contents: [filePart, { text: promptText }],
-      config: {
-        systemInstruction: "Retorne estritamente um JSON que siga perfeitamente o esquema solicitado, sem qualquer marcação ou formatação fora do JSON.",
-        responseMimeType: "application/json",
-        responseSchema: {
-          type: Type.OBJECT,
-          properties: {
-            complexity: { type: Type.STRING, description: "Just 'Iniciante', 'Intermediário' or 'Avançado'" },
-            justifiedPedagogy: { type: Type.STRING, description: "Educational pedagogical reasoning." },
-            estimatedTime: { type: Type.STRING, description: "Duration or study hours estimation. Ex: '4 semanas (50h)'" },
-            category: { type: Type.STRING, description: "Technology category. Ex: 'Design 3D'" },
-            colors: {
-              type: Type.ARRAY,
-              items: {
-                type: Type.OBJECT,
-                properties: {
-                  hex: { type: Type.STRING },
-                  name: { type: Type.STRING },
-                  psychology: { type: Type.STRING },
-                  usage: { type: Type.STRING }
-                },
-                required: ["hex", "name", "psychology", "usage"]
-              }
-            },
-            topics: {
-              type: Type.ARRAY,
-              items: {
-                type: Type.OBJECT,
-                properties: {
-                  name: { type: Type.STRING },
-                  summary: { type: Type.STRING },
-                  xpReward: { type: Type.INTEGER }
-                },
-                required: ["name", "summary", "xpReward"]
-              }
-            },
-            roadmap: {
-              type: Type.OBJECT,
-              properties: {
-                primary: { type: Type.ARRAY, items: { type: Type.STRING } },
-                secondary: { type: Type.ARRAY, items: { type: Type.STRING } },
-                advanced: { type: Type.ARRAY, items: { type: Type.STRING } }
-              },
-              required: ["primary", "secondary", "advanced"]
-            }
-          },
-          required: ["complexity", "justifiedPedagogy", "estimatedTime", "category", "colors", "topics", "roadmap"]
-        },
-        temperature: 0.2
+    const resultText = await callCopilotAPI([
+      {
+        role: "system",
+        content: "Você é o Motor de IA Analítico do SkillQuest. Responda estritamente com um JSON válido, sem markdown e sem texto extra."
+      },
+      {
+        role: "user",
+        content: `${promptText}\n\nRetorne exatamente um objeto JSON com o esquema solicitado.`
       }
-    });
+    ], 0.2);
 
-    const resultText = response.text || "{}";
-    const parsedData = JSON.parse(resultText);
+    const parsedData = JSON.parse(resultText || "{}")
     return res.json(parsedData);
 
   } catch (error: any) {
-    console.warn("Aviso de acesso da API do Gemini (obtido erro, iniciando fallback pedagógico integrado):", error.message || error);
+    console.warn("Aviso de acesso da API do Copilot (obtido erro, iniciando fallback pedagógico integrado):", error.message || error);
     // Retorna fallback limpo e inteligível
     return res.json(getMockWalkthrough(fileName || "Documentação Técnica"));
   }
@@ -150,9 +119,8 @@ app.post("/api/mentor-chat", async (req, res) => {
     return res.status(400).json({ error: "O parâmetro 'messages' deve ser um array." });
   }
 
-  const ai = getAiClient();
-  // Se o cliente não estiver inicializado de forma real, retornamos uma resposta mock simulada inteligente
-  if (!ai) {
+  const apiKey = getCopilotApiKey();
+  if (!apiKey || apiKey === "MY_COPILOT_API_KEY" || apiKey.trim() === "") {
     const lastUserMessage = messages[messages.length - 1]?.text || "";
     return res.json({
       role: "mentor",
@@ -176,26 +144,18 @@ app.post("/api/mentor-chat", async (req, res) => {
       Seja encorajador, responda em português com clareza e mantenha os dados fáceis de ler.
     `;
 
-    // Usaremos chat ou geração rápida
-    const response = await ai.models.generateContent({
-      model: "gemini-3.5-flash",
-      contents: [
-        ...formattedHistory.map(h => ({ role: h.role, parts: h.parts })),
-        { role: "user", parts: [{ text: currentQuestion }] }
-      ],
-      config: {
-        systemInstruction: systemPrompt,
-        temperature: 0.7
-      }
-    });
+    const responseText = await callCopilotAPI([
+      { role: "system", content: systemPrompt },
+      { role: "user", content: currentQuestion }
+    ], 0.7);
 
     return res.json({
       role: "mentor",
-      text: response.text || "Perdoe-me, não consegui sintetizar uma resposta agora. Tente novamente em alguns segundos!"
+      text: responseText || "Perdoe-me, não consegui sintetizar uma resposta agora. Tente novamente em alguns segundos!"
     });
 
   } catch (error: any) {
-    console.warn("Aviso de acesso da API do Gemini no chat (fallback local ativado):", error.message || error);
+    console.warn("Aviso de acesso da API do Copilot no chat (fallback local ativado):", error.message || error);
     const lastUserMessage = messages[messages.length - 1]?.text || "";
     return res.json({
       role: "mentor",
@@ -206,7 +166,7 @@ Sobre sua dúvida em relação a "${lastUserMessage}", o foco central de estudo 
   }
 });
 
-// Mock Walkthrough de estudos caso não haja conexão com o Gemini de Produção
+// Mock Walkthrough de estudos caso não haja conexão com o Copilot de Produção
 function getMockWalkthrough(filename: string) {
   const norm = filename.toLowerCase();
   // Ajusta mocks baseado em nomes comuns sugeridos para ficar interativo e realístico

@@ -7,12 +7,12 @@ export interface ReferenceCodeFile {
 
 export const REFERENCE_FILES: ReferenceCodeFile[] = [
   {
-    name: "Django Gemini Service",
+    name: "Django Copilot Service",
     language: "python",
     path: "django_service.py",
     content: `"""
-SkillQuest - Serviço Django de Integração com Google Gemini
-Envia imagens/diagramas para o Gemini-3.5-Flash para gerar o Walkthrough de Estudos.
+SkillQuest - Serviço Django de Integração com Copilot
+Envia imagens/diagramas para o motor de IA do Copilot para gerar o Walkthrough de Estudos.
 """
 import os
 import json
@@ -21,12 +21,12 @@ from google import genai
 from google.genai import types
 from django.conf import settings
 
-class GeminiReverseLearningService:
+class CopilotReverseLearningService:
     @staticmethod
     def get_client():
-        api_key = getattr(settings, 'GEMINI_API_KEY', os.environ.get('GEMINI_API_KEY'))
+        api_key = getattr(settings, 'COPILOT_API_KEY', os.environ.get('COPILOT_API_KEY'))
         if not api_key:
-            raise ValueError("GEMINI_API_KEY não foi configurada.")
+            raise ValueError("COPILOT_API_KEY não foi configurada.")
         return genai.Client(api_key=api_key)
 
     @classmethod
@@ -90,7 +90,7 @@ class GeminiReverseLearningService:
 
         try:
             response = client.models.generate_content(
-                model='gemini-3.5-flash',
+                model=os.getenv('COPILOT_MODEL', 'copilot-default'),
                 contents=[image_part, prompt],
                 config=types.GenerateContentConfig(
                     system_instruction=system_instruction,
@@ -191,8 +191,8 @@ class MultimodalScanView(APIView):
         mime_type = request.data.get("mime_type", "image/png")
         file_name = request.data.get("file_name", "upload.png")
 
-        # Aciona o serviço do Gemini IA
-        ai_data = GeminiReverseLearningService.analyze_material(file_data, mime_type, file_name)
+        # Aciona o serviço da IA do Copilot
+        ai_data = CopilotReverseLearningService.analyze_material(file_data, mime_type, file_name)
 
         material = StudyMaterial.objects.create(
             user=request.user, name=file_name, mime_type=mime_type, category=ai_data.get("category", "Geral")
@@ -246,7 +246,7 @@ Como rodar o ecossistema Django REST + Next.js do SkillQuest de forma local ou C
 
 ### Dependências Backend (Python):
 \`\`\`bash
-pip install django djangorestframework djangorestframework-simplejwt django-cors-headers google-genai dotenv
+pip install django djangorestframework djangorestframework-simplejwt django-cors-headers python-dotenv
 \`\`\`
 
 ### Dependências Frontend (Node/Next):
