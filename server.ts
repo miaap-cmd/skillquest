@@ -19,7 +19,23 @@ function getCopilotApiKey() {
   return process.env.COPILOT_API_KEY || process.env.GITHUB_TOKEN || process.env.GITHUB_CODESPACE_TOKEN || "";
 }
 
-async function callCopilotAPI(messages: Array<{ role: string; content: string }>, temperature = 0.2) {
+function normalizeJsonPayload(raw: string) {
+  const text = raw.trim();
+  const withoutFence = text.replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/i, "");
+  const first = withoutFence.indexOf("{");
+  const last = withoutFence.lastIndexOf("}");
+
+  if (first !== -1 && last !== -1 && last > first) {
+    return withoutFence.slice(first, last + 1);
+  }
+
+  return withoutFence;
+}
+
+async function callCopilotAPI(
+  messages: Array<{ role: string; content: any }>,
+  temperature = 0.2
+) {
   const apiKey = getCopilotApiKey();
   if (!apiKey || apiKey === "MY_COPILOT_API_KEY" || apiKey.trim() === "") {
     return null;
@@ -77,31 +93,44 @@ app.post("/api/analyze-material", async (req, res) => {
     };
 
     const promptText = `
-      Você é o Motor de IA Analítico, de Análise Pedagógica e Engenharia Reversa do SkillQuest.
-      Seu objetivo é analisar o arquivo fornecido pelo usuário (que pode ser uma imagem como designs 3D, layouts, diagramas técnicos, ilustrações, infográficos, OU um documento de texto como PDF, texto livre ou código-fonte).
-      Seu propósito é gerar um percurso pedagógico estruturado (walkthrough) ensinando as disciplinas lógicas, conceituais e práticas necessárias para o usuário entender, dominar ou recriar aquele assunto/conteúdo do zero de forma gamificada.
-
-      Analise o arquivo anexo '${fileName || "referencia.png"}'. Extraia e estruture no JSON de resposta:
+      Você é o Motor de IA Analítico do SkillQuest.
+      Sua missão é identificar o assunto principal da imagem ou do material enviado e relacioná-lo com disciplinas de DESIGN, UI/UX, branding, tipografia, composição, cor, ilustração, layout, identidade visual, produto, motion design ou experiência visual.
+      Analise atentamente o arquivo '${fileName || "referencia"}'.
+      Extraia e estruture no JSON de resposta:
       1. Complexidade de Aprendizado (Iniciante, Intermediário ou Avançado com justificativa)
       2. Tempo Estimado para dominar aquele assunto do zero (ex: '4 semanas (40h)')
-      3. Paleta cromática ou de estilos conceituais: para imagens, extraia as cores principais; para documentos ou códigos, infira uma paleta de cores moderna e coerente com a marca/assunto e sua respectiva psicologia e uso.
-      4. Uma lista sequencial/cronológica de até 4 tópicos/assuntos chaves para estudo, ordenados do mais simples ao mais complexo.
-      5. Um roteiro de focos (roadmap) dividindo a lista de tópicos em primário (básico), secundário (intermediário) e avançado (tópicos profundos).
-      6. A categoria predominante de conhecimento (ex: Design 3D, Desenvolvimento Web, Inteligência Artificial, Banco de Datos, Ilustração Vetorial, Programação, etc.).
+      3. Paleta cromática ou de estilos conceituais: extraia as cores principais ou infira uma paleta adequada ao assunto.
+      4. Uma lista sequencial de até 4 tópicos chave para estudo, ordenados do mais simples ao mais complexo.
+      5. Um roadmap com primário, secundário e avançado.
+      6. A categoria predominante de conhecimento, priorizando assuntos ligados a DESIGN quando fizer sentido.
+      7. Uma descrição curta do que a imagem está mostrando.
+      Se o conteúdo parecer ser sobre design, destaque isso explicitamente.
     `;
 
     const resultText = await callCopilotAPI([
       {
         role: "system",
-        content: "Você é o Motor de IA Analítico do SkillQuest. Responda estritamente com um JSON válido, sem markdown e sem texto extra."
+        content: "Você é o Motor de IA Analítico do SkillQuest. Responda estritamente com um JSON válido, sem markdown e sem texto extra. Sempre relacione o conteúdo visual com assuntos de design quando houver compatibilidade."
       },
       {
         role: "user",
-        content: `${promptText}\n\nRetorne exatamente um objeto JSON com o esquema solicitado.`
+        content: [
+          {
+            type: "text",
+            text: `${promptText}\n\nRetorne exatamente um objeto JSON com o esquema solicitado.`
+          },
+          {
+            type: "image_url",
+            image_url: {
+              url: `data:${mimeType || "image/png"};base64,${cleanBase64}`
+            }
+          }
+        ]
       }
     ], 0.2);
 
-    const parsedData = JSON.parse(resultText || "{}")
+    const normalizedPayload = normalizeJsonPayload(resultText || "{}");
+    const parsedData = JSON.parse(normalizedPayload);
     return res.json(parsedData);
 
   } catch (error: any) {
